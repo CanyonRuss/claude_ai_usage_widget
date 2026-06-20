@@ -39,7 +39,7 @@ from pathlib import Path
 APP_ID = "claude-usage-widget"
 APP_NAME = "Claude Usage"
 ICON_NAME = "network-transmit-receive"  # fallback icon
-REFRESH_INTERVAL_SEC = 1800  # 30 minutes (background fallback only; menu-open triggers on-demand fetch)
+REFRESH_INTERVAL_SEC = 600  # 10 minutes
 USAGE_API_URL = "https://api.anthropic.com/api/oauth/usage"
 
 CONFIG_DIR = Path.home() / ".config" / APP_ID
@@ -485,7 +485,6 @@ class ClaudeUsageApp:
         self.running = True
         self.last_notification_threshold: int = 0  # Track last notified threshold (0, 75, 90, 100)
         self.startup_notification_sent: bool = False
-        self._last_fetch_time: float = 0.0
 
         Notify.init(APP_NAME)
 
@@ -538,7 +537,6 @@ class ClaudeUsageApp:
 
         self.menu.show_all()
         self.indicator.set_menu(self.menu)
-        self.menu.connect("map", self._on_menu_opened)
 
         # Load token and subscription info
         self.token = load_token()
@@ -578,12 +576,6 @@ class ClaudeUsageApp:
                 print(f"[claude-usage] Poll error: {e}", file=sys.stderr)
             time.sleep(REFRESH_INTERVAL_SEC)
 
-    def _on_menu_opened(self, _widget):
-        """Auto-fetch when tray menu opens; debounced to avoid re-fetching within 30s."""
-        now = time.time()
-        if now - self._last_fetch_time > 30:
-            self.force_refresh()
-
     def force_refresh(self):
         """Immediate refresh triggered by user."""
         def _do():
@@ -604,7 +596,6 @@ class ClaudeUsageApp:
 
     def _update_ui(self, data: dict | None):
         """Update indicator label + icon from fetched data (runs on GTK thread)."""
-        self._last_fetch_time = time.time()
         self.usage_data = data
         self.last_updated = datetime.now().strftime("%H:%M:%S")
 
